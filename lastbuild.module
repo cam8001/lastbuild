@@ -1,0 +1,55 @@
+<?php
+
+/**
+ * Implements hook_init().
+ */
+function lastbuild_init() {
+  drupal_register_shutdown_function('lastbuild_shutdown');
+}
+
+/**
+ * Print the last build time at the bottom of output.
+ */
+function lastbuild_shutdown() {
+  // If it's unsafe to output, stop here.
+  if (lastbuild_silent()) {
+    return;
+  }
+
+  $date_format = 'Y-m-d H:i T';
+
+  if (($lastbuild_timestamp = file_get_contents(DRUPAL_ROOT . '/.ah_site_archive_imported')) !== FALSE) {
+    $time_ago = time() - $lastbuild_timestamp;
+    $t_vars = array(
+      '%date' => format_date($lastbuild_timestamp, 'custom', $date_format),
+      '%time_ago' => gmdate('H:i:s', $time_ago),
+    );
+    echo t_safe('Site last imported at %date, %time_ago ago.', $t_vars);
+  }
+
+}
+
+/**
+ * Confirm whether its safe to output data to the output buffer.
+ *
+ * This is a straight copy of devel_silent(), with devel specific code removed.
+ *
+ * @see https://api.drupal.org/api/devel/devel.module/function/devel_silent/7
+ *
+ * @return bool
+ */
+function lastbuild_silent() {
+  // isset($_GET['q']) is needed when calling the front page. q is not set.
+  // Don't interfere with private files/images.
+  return
+    function_exists('drupal_is_cli') && drupal_is_cli() ||
+    (isset($_SERVER['HTTP_USER_AGENT']) && strpos($_SERVER['HTTP_USER_AGENT'], 'ApacheBench') !== FALSE) ||
+    !empty($_REQUEST['XDEBUG_PROFILE']) ||
+    strstr($_SERVER['PHP_SELF'], 'update.php') ||
+    (isset($_GET['q']) && (
+        in_array($_GET['q'], array( 'admin/content/node-settings/rebuild')) ||
+        substr($_GET['q'], 0, strlen('system/files')) == 'system/files' ||
+        substr($_GET['q'], 0, strlen('batch')) == 'batch' ||
+        substr($_GET['q'], 0, strlen('file/ajax')) == 'file/ajax')
+    );
+}
